@@ -1,0 +1,140 @@
+CODE:
+
+
+#include <Adafruit_GFX.h>    // Core graphics library
+#include <Adafruit_ST7735.h> // Hardware-specific library for ST7735
+#include <Adafruit_ST7789.h> // Hardware-specific library for ST7789
+#include <SPI.h>
+
+#define TFT_CS        10
+#define TFT_RST        8 // Or set to -1 and connect to Arduino RESET pin
+#define TFT_DC         9
+
+Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
+
+//UV sensor range: upto 400cm
+#define pingPin 6
+#define echoPin 7
+#define buzzerPin 5
+int SensorPin = 12;                                                      //IR sensor range upt0 20cm
+#define LED_PIN3 4      //red                                         
+#define LED_PIN1 2        //yellow                                                  
+#define LED_PIN2 3        //blue
+#define switch1 1      
+void setup() {
+  Serial.begin(9600);
+  // Use this initializer if using a 1.8" TFT screen:
+  tft.initR(INITR_BLACKTAB);      // Init ST7735S chip, black tab
+
+  // large block of text
+  tft.fillScreen(ST77XX_BLACK);
+  tft.setTextSize(2);
+  testdrawtext("Welcome to traffic control warning system! ", ST77XX_WHITE);
+  delay(1000); 
+
+  pinMode(LED_PIN3, OUTPUT);
+  pinMode(SensorPin, INPUT);
+  pinMode(buzzerPin, OUTPUT);
+  pinMode(LED_PIN1,OUTPUT);
+  pinMode(LED_PIN2,OUTPUT);
+  pinMode(switch1,INPUT);
+
+  tft.fillScreen(ST77XX_BLACK);  //making screen background black
+ 
+}
+
+void loop() {
+  
+  int SensorValue = digitalRead(SensorPin);
+  int sensorvolt = analogRead(SensorPin);
+  int coll = digitalRead(switch1);
+  Serial.println(sensorvolt);
+  long duration, cm;
+
+ pinMode(pingPin, OUTPUT);
+ digitalWrite(pingPin, LOW);
+ delayMicroseconds(2);
+ digitalWrite(pingPin, HIGH);
+ delayMicroseconds(10);
+ digitalWrite(pingPin, LOW);
+ pinMode(echoPin, INPUT);
+ duration = pulseIn(echoPin, HIGH);
+ cm = microsecondsToCentimeters(duration);
+ tft.setTextSize(2);
+ testdrawtext("Distance:", ST77XX_WHITE);
+ tft.println();
+ tft.println();
+ tft.setTextColor(ST77XX_GREEN);
+
+ tft.println();
+ tft.print(cm);
+ tft.print("cm");
+ tft.println();
+ delay(2500);
+ tft.fillScreen(ST77XX_BLACK);
+ brake(cm,SensorValue,coll);
+}
+
+void testdrawtext(char *text, uint16_t color) {
+  tft.setCursor(0, 0);
+  tft.setTextColor(color);
+  tft.setTextWrap(true);
+  tft.print(text);
+}
+
+void brake(long c,int x,int y){
+  if(c <=3 || y==LOW)                               //LOW means there is a collisioin
+  {tft.print("Collision Unavoidable...\nDeploy Airbags\n\n");
+  // analogWrite(buzzerPin, 127);                         //buzzer works at its half intensity
+  // delay(500);
+  // analogWrite(buzzerPin, 0);
+  digitalWrite(LED_PIN3, HIGH);
+ digitalWrite(LED_PIN2, HIGH);
+ digitalWrite(LED_PIN1, HIGH);
+  delay(500);
+  digitalWrite(LED_PIN3, LOW);
+ digitalWrite(LED_PIN2, LOW);
+ digitalWrite(LED_PIN1, LOW);
+  }
+
+ else if (c <= 20 && x==LOW)                              //LOW means object detected
+ {
+ tft.print("Danger.\nExtremely close gap\n\n");
+ digitalWrite(LED_PIN3, HIGH);
+ digitalWrite(LED_PIN2, HIGH);
+ digitalWrite(LED_PIN1, HIGH);
+ analogWrite(buzzerPin, 127);                         //buzzer works at its half intensity
+ delay(500);
+ analogWrite(buzzerPin, 0);
+ digitalWrite(LED_PIN3, LOW);
+ digitalWrite(LED_PIN2, LOW);
+ digitalWrite(LED_PIN1, LOW);
+ } 
+ 
+ else if (c <= 150)
+ {
+ tft.print("Collision Warning.\nApply BRAKES\n\n");
+ digitalWrite(LED_PIN2, HIGH);
+ digitalWrite(LED_PIN1, HIGH);
+ tone(buzzerPin, 1000, 500);                                      // tone(pinNumber, frequency in hz, duration in ms)   here,buzzes of 1s
+ delay(1000);
+ noTone(buzzerPin); 
+ digitalWrite(LED_PIN2, LOW);
+ digitalWrite(LED_PIN1, LOW);
+ 
+ }
+
+else if(c <= 300)
+{
+  tft.print("Vehicle ahead\nApproach with caution\n");
+  digitalWrite(LED_PIN2, HIGH);
+  delay(1000); 
+  digitalWrite(LED_PIN2, LOW);                                                  //1sec delay
+}
+}
+
+
+long microsecondsToCentimeters(long microseconds) {
+ return microseconds / 29 / 2;
+}
+
